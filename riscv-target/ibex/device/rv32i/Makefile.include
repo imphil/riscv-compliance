@@ -1,0 +1,29 @@
+TARGET_SIM ?= Vibex_riscv_compliance
+ifeq ($(shell command -v $(TARGET_SIM) 2> /dev/null),)
+	$(error Target simulator executable '$(TARGET_SIM)` not found)
+endif
+
+RUN_TARGET=\
+	$(TARGET_SIM) \
+		--term-after-cycles=100000 \
+		--raminit=$(work_dir_isa)/$<.vmem \
+		> $(work_dir_isa)/$(*).stdout \
+		2> $(work_dir_isa)/$@; \
+		grep "^SIGNATURE: " $(work_dir_isa)/$(*).stdout | sed 's/SIGNATURE: 0x//' > $(work_dir_isa)/$(*).signature.output
+
+RISCV_PREFIX   ?= riscv32-unknown-elf-
+RISCV_GCC      ?= $(RISCV_PREFIX)gcc
+RISCV_OBJDUMP  ?= $(RISCV_PREFIX)objdump
+RISCV_OBJCOPY  ?= $(RISCV_PREFIX)objcopy
+RISCV_GCC_OPTS ?= -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles
+
+COMPILE_TARGET=\
+	$$(RISCV_GCC) $(2) $$(RISCV_GCC_OPTS) \
+		-I$(ROOTDIR)/riscv-test-env/ \
+		-I$(ROOTDIR)/riscv-test-env/p/ \
+		-I$(TARGETDIR)/$(RISCV_TARGET)/ \
+		-T$(ROOTDIR)/riscv-test-env/p/link.ld $$< \
+		-o $(work_dir_isa)/$$@; \
+	$$(RISCV_OBJDUMP) -D $(work_dir_isa)/$$@ > $(work_dir_isa)/$$@.objdump; \
+	$$(RISCV_OBJCOPY) -O binary $(work_dir_isa)/$$@ $(work_dir_isa)/$$@.bin; \
+	srec_cat $(work_dir_isa)/$$@.bin -binary -offset 0x0000 -byte-swap 4 -o $(work_dir_isa)/$$@.vmem -vmem
