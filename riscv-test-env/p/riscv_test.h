@@ -107,14 +107,17 @@
 
 #define RVTEST_CODE_BEGIN                                               \
         .section .text.init;                                            \
-        .align  6;                                                      \
+/*        .align  6;                                                      */ \
         .weak stvec_handler;                                            \
         .weak mtvec_handler;                                            \
         .globl _start;                                                  \
 _start:                                                                 \
+        /* exception handler */ \
+        .org 0x00; \
+        jal x0, trap_vector; \
+        .org 0x80; \
         /* reset vector */                                              \
         j reset_vector;                                                 \
-        .align 2;                                                       \
 trap_vector:                                                            \
         /* test whether the test came from pass/fail */                 \
         csrr t5, mcause;                                                \
@@ -142,9 +145,9 @@ handle_exception:                                                       \
         j write_tohost;                                                 \
 reset_vector:                                                           \
         RISCV_MULTICORE_DISABLE;                                        \
-        INIT_SPTBR;                                                     \
-        INIT_PMP;                                                       \
-        DELEGATE_NO_TRAPS;                                              \
+/*        INIT_SPTBR; expands to   csrwi   satp,0  which is not supported by ibex */                                                 \
+/*        INIT_PMP;   expands to csrw    pmpaddr0,t0 which is not supported by ibex */                                                    \
+/*        DELEGATE_NO_TRAPS; expands to csrwi   medeleg,0 which is not supported by ibex */                                             \
         li TESTNUM, 0;                                                  \
         la t0, trap_vector;                                             \
         csrw mtvec, t0;                                                 \
